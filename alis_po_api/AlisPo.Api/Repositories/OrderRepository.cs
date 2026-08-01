@@ -13,7 +13,15 @@ public sealed class OrderRepository : IOrderRepository
     {
         public int ProductId { get; init; }
 
+        public string ProductCode { get; init; } = "";
+
+        public string ProductName { get; init; } = "";
+
+        public string ThaiName { get; init; } = "";
+
         public int DefaultUnitId { get; init; }
+
+        public string UnitName { get; init; } = "";
     }
 
 
@@ -110,9 +118,10 @@ AND CAST(OrderDate AS date) = CAST(@OrderDate AS date);",
             Console.WriteLine($"OrderDate={request.OrderDate:yyyy-MM-dd}");
             Console.WriteLine($"RunningNo={runningNo}");
 
-            request.PONumber = $"PO-{branchCode}-{today}-{runningNo:0000}";
+            var poNumber =
+    $"PO-{branchCode}-{today}-{runningNo:0000}";
 
-            Console.WriteLine($"PONumber={request.PONumber}");
+            Console.WriteLine($"PONumber={poNumber}");
 
             var orderId = await connection.ExecuteScalarAsync<int>(
                 new CommandDefinition(
@@ -138,7 +147,7 @@ VALUES
 );",
                     parameters: new
                     {
-                        request.PONumber,
+                        PONumber = poNumber,
                         request.BranchId,
                         request.OrderDate,
                         request.CreatedBy
@@ -153,10 +162,24 @@ VALUES
                     new CommandDefinition(
                         commandText: @"
 SELECT
-    ProductId,
-    DefaultUnitId
-FROM Products
-WHERE ProductCode = @ProductCode",
+    p.ProductId,
+
+    p.ProductCode,
+
+    p.ProductName,
+
+    ISNULL(p.ThaiName,'') AS ThaiName,
+
+    p.DefaultUnitId,
+
+    u.UnitName
+
+FROM Products p
+
+INNER JOIN Units u
+ON p.DefaultUnitId = u.UnitId
+
+WHERE p.ProductCode = @ProductCode;",
                         parameters: new
                         {
                             item.ProductCode
@@ -173,30 +196,54 @@ WHERE ProductCode = @ProductCode",
 
                 await connection.ExecuteAsync(
                     new CommandDefinition(
-                        commandText: @"
+commandText: @"
 INSERT INTO PurchaseOrderDetails
 (
     PurchaseOrderId,
     ProductId,
+    ProductCode,
+    ProductName,
+    ThaiName,
     UnitId,
+    UnitName,
     Quantity,
-    Remark
+    Remark,
+    DisplayOrder
 )
 VALUES
 (
     @PurchaseOrderId,
     @ProductId,
+    @ProductCode,
+    @ProductName,
+    @ThaiName,
     @UnitId,
+    @UnitName,
     @Quantity,
-    @Remark
+    @Remark,
+    @DisplayOrder
 );",
                         parameters: new
                         {
                             PurchaseOrderId = orderId,
+
                             ProductId = product.ProductId,
+
+                            ProductCode = product.ProductCode,
+
+                            ProductName = product.ProductName,
+
+                            ThaiName = product.ThaiName,
+
                             UnitId = item.UnitId,
+
+                            UnitName = product.UnitName,
+
                             Quantity = item.Qty,
-                            item.Remark
+
+                            Remark = item.Remark ?? "",
+
+                            DisplayOrder = 0
                         },
                         transaction: transaction,
                         cancellationToken: cancellationToken,

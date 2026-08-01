@@ -19,4 +19,6 @@ public class CreateProductRequest
     public bool AllowDecimal { get; set; }
 
     public bool Active { get; set; }
+
+    public bool OutOfStock { get; set; }
 }

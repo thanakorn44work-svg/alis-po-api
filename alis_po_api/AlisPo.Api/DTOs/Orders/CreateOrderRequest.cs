@@ -2,8 +2,6 @@ namespace AlisPo.Api.DTOs.Orders;
 
 public sealed class CreateOrderRequest
 {
-    public string PONumber { get; set; } = string.Empty;
-
     public int BranchId { get; set; }
 
     public int CreatedBy { get; set; }

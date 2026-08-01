@@ -1,7 +1,7 @@
 using AlisPo.Api.DTOs;
+using AlisPo.Api.DTOs.Products;
 using AlisPo.Api.Repositories;
 using AlisPo.Api.Services.Interfaces;
-using AlisPo.Api.DTOs.Products;
 
 namespace AlisPo.Api.Services;
 
@@ -23,12 +23,42 @@ public sealed class ProductService : IProductService
     {
         return await _repository.GetAllAsync(cancellationToken);
     }
+
+    public async Task<ProductDto?> GetProductByIdAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        return await _repository.GetByIdAsync(
+            id,
+            cancellationToken);
+    }
+
     public async Task AddProductAsync(
-    CreateProductRequest request,
-    CancellationToken cancellationToken = default)
+        CreateProductRequest request,
+        CancellationToken cancellationToken = default)
     {
         await _repository.AddAsync(
             request,
+            cancellationToken);
+    }
+
+    public async Task UpdateProductAsync(
+        int id,
+        UpdateProductRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await _repository.UpdateAsync(
+            id,
+            request,
+            cancellationToken);
+    }
+
+    public async Task DeleteProductAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        await _repository.DeleteAsync(
+            id,
             cancellationToken);
     }
 }

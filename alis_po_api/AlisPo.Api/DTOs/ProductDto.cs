@@ -19,4 +19,6 @@ public sealed class ProductDto
     public string Image { get; set; } = string.Empty;
 
     public bool AllowDecimal { get; set; }
+    public bool OutOfStock { get; set; }
+    public bool Active { get; set; }
 }

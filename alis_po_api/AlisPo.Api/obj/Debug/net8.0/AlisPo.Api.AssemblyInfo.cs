@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AlisPo.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5ebf0aa983144b37856dde6e72efea700a79a6de")]
 [assembly: System.Reflection.AssemblyProductAttribute("AlisPo.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AlisPo.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
