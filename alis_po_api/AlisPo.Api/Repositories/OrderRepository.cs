@@ -85,9 +85,18 @@ public sealed class OrderRepository : IOrderRepository
             var branchCode = await connection.ExecuteScalarAsync<string>(
                 new CommandDefinition(
                     commandText: @"
-SELECT BranchCode
+SELECT CASE BranchID
+    WHEN 8 THEN 'SM'
+    WHEN 3 THEN 'NH'
+    WHEN 4 THEN 'KT'
+    WHEN 9 THEN 'HL'
+    WHEN 2 THEN 'BT'
+    WHEN 7 THEN 'HO'
+    WHEN 11 THEN 'CA'
+    ELSE ''
+END
 FROM Branches
-WHERE BranchId = @BranchId",
+WHERE BranchID = @BranchId",
                     parameters: new
                     {
                         request.BranchId
@@ -104,7 +113,8 @@ WHERE BranchId = @BranchId",
 SELECT ISNULL(MAX(CAST(RIGHT(PONumber,4) AS INT)),0) + 1
 FROM PurchaseOrders
 WHERE BranchId = @BranchId
-AND CAST(OrderDate AS date) = CAST(@OrderDate AS date);",
+AND YEAR(OrderDate) = YEAR(@OrderDate)
+AND MONTH(OrderDate) = MONTH(@OrderDate);",
                     parameters: new
                     {
                         request.BranchId,
@@ -277,7 +287,16 @@ SELECT
     po.PONumber,
 
     po.BranchId,
-    b.BranchCode,
+    CASE b.BranchID
+        WHEN 8 THEN 'SM'
+        WHEN 3 THEN 'NH'
+        WHEN 4 THEN 'KT'
+        WHEN 9 THEN 'HL'
+        WHEN 2 THEN 'BT'
+        WHEN 7 THEN 'HO'
+        WHEN 10 THEN 'TECH'
+        ELSE ''
+    END AS BranchCode,
     b.BranchName,
 
     po.OrderDate,
@@ -286,15 +305,15 @@ SELECT
 
     pod.PurchaseOrderDetailId,
 
-    p.ProductCode,
-    p.ProductName,
-    ISNULL(p.ThaiName,'') AS ThaiName,
+    pod.ProductCode,
+    pod.ProductName,
+    ISNULL(pod.ThaiName,'') AS ThaiName,
 
     c.CategoryName,
 
     ot.OrderTypeName,
 
-    u.UnitName,
+    pod.UnitName,
 
     pod.Quantity,
 
@@ -485,5 +504,30 @@ AND MONTH(OrderDate) = @Month;",
             throw;
         }
     }
+    public async Task CompleteOrderAsync(
+        int purchaseOrderId,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = _connectionFactory.CreateConnection();
 
+        await connection.OpenAsync(cancellationToken);
+
+        var affectedRows = await connection.ExecuteAsync(
+            new CommandDefinition(
+                @"
+UPDATE PurchaseOrders
+SET Status = 'Completed'
+WHERE PurchaseOrderId = @PurchaseOrderId;",
+                new
+                {
+                    PurchaseOrderId = purchaseOrderId
+                },
+                cancellationToken: cancellationToken));
+
+        if (affectedRows == 0)
+        {
+            throw new KeyNotFoundException(
+                $"PurchaseOrderId {purchaseOrderId} was not found.");
+        }
+    }
 }

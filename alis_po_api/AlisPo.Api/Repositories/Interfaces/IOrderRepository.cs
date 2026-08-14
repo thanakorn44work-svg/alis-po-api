@@ -19,4 +19,8 @@ public interface IOrderRepository
         int year,
         int month,
         CancellationToken cancellationToken = default);
+
+    Task CompleteOrderAsync(
+    int purchaseOrderId,
+    CancellationToken cancellationToken = default);
 }

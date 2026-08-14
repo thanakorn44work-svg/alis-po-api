@@ -14,16 +14,18 @@ public sealed class ProductSeeder
         PropertyNameCaseInsensitive = true
     };
 
-    private static readonly IReadOnlyDictionary<string, string> SupplierMap =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    // DEV MainCategory → Production SupplierName
+    // null = บริษัทไม่มี Supplier สำหรับ Order Type นี้
+    private static readonly IReadOnlyDictionary<string, string?> SupplierMap =
+        new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Makro Order"] = "MAKRO",
-            ["Store Order"] = "STORE",
-            ["Kanna Juice Order"] = "KANNA",
-            ["Fruit Order"] = "FRUIT",
-            ["Bread Order"] = "BREAD",
-            ["Cake Order"] = "CAKE",
-            ["Supercheap Order"] = "SUPERCHEAP"
+            ["Makro Order"] = "Makro",
+            ["Store Order"] = "ALI'S Warehouse",
+            ["Kanna Juice Order"] = "KANNA HEALTHY CO.,LTD.",
+            ["Fruit Order"] = null,
+            ["Bread Order"] = "Ali Bakery ( Bread Yossef )",
+            ["Cake Order"] = "Cake",
+            ["Supercheap Order"] = null
         };
 
     public ProductSeeder(SqlConnectionFactory connectionFactory)
@@ -33,10 +35,15 @@ public sealed class ProductSeeder
 
     public async Task SeedAsync()
     {
-        var file = Path.Combine(AppContext.BaseDirectory, "Imports", "products.json");
+        var file = Path.Combine(
+            AppContext.BaseDirectory,
+            "Imports",
+            "products.json");
 
         if (!File.Exists(file))
-            throw new FileNotFoundException("products.json not found.", file);
+            throw new FileNotFoundException(
+                "products.json not found.",
+                file);
 
         var products = JsonSerializer.Deserialize<List<ProductImport>>(
             await File.ReadAllTextAsync(file),
@@ -63,8 +70,16 @@ public sealed class ProductSeeder
             foreach (var item in products)
             {
                 var exists = await connection.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(*) FROM Products WHERE ProductCode=@Code",
-                    new { Code = item.Id }, transaction);
+                    """
+                    SELECT COUNT(*)
+                    FROM Products
+                    WHERE ProductCode = @Code
+                    """,
+                    new
+                    {
+                        Code = item.Id
+                    },
+                    transaction);
 
                 if (exists > 0)
                 {
@@ -72,60 +87,162 @@ public sealed class ProductSeeder
                     continue;
                 }
 
+                // Order Type
                 var orderTypeId = await connection.ExecuteScalarAsync<int?>(
-                    "SELECT OrderTypeId FROM OrderTypes WHERE OrderTypeName=@Name",
-                    new { Name = item.MainCategory }, transaction)
-                    ?? throw new Exception($"OrderType not found: {item.MainCategory}");
+                    """
+                    SELECT OrderTypeId
+                    FROM OrderTypes
+                    WHERE OrderTypeName = @Name
+                    """,
+                    new
+                    {
+                        Name = item.MainCategory
+                    },
+                    transaction)
+                    ?? throw new Exception(
+                        $"OrderType not found: {item.MainCategory}");
 
+                // Category
                 var categoryId = await connection.ExecuteScalarAsync<int?>(
-                    @"SELECT CategoryId
-                      FROM Categories
-                      WHERE OrderTypeId=@OrderTypeId
-                      AND CategoryName=@CategoryName",
-                    new { OrderTypeId = orderTypeId, CategoryName = item.SubCategory }, transaction)
-                    ?? throw new Exception($"Category not found: {item.SubCategory}");
+                    """
+                    SELECT CategoryId
+                    FROM Categories
+                    WHERE OrderTypeId = @OrderTypeId
+                      AND CategoryName = @CategoryName
+                    """,
+                    new
+                    {
+                        OrderTypeId = orderTypeId,
+                        CategoryName = item.SubCategory
+                    },
+                    transaction)
+                    ?? throw new Exception(
+                        $"Category not found: {item.SubCategory}");
 
+                // Unit
                 var unitId = await connection.ExecuteScalarAsync<int?>(
-                    "SELECT UnitId FROM Units WHERE UnitCode=@Code",
-                    new { Code = item.Unit }, transaction)
-                    ?? throw new Exception($"Unit not found: {item.Unit}");
+                    """
+                    SELECT UnitId
+                    FROM Units
+                    WHERE UnitCode = @Code
+                    """,
+                    new
+                    {
+                        Code = item.Unit
+                    },
+                    transaction)
+                    ?? throw new Exception(
+                        $"Unit not found: {item.Unit}");
 
-                if (!SupplierMap.TryGetValue(item.MainCategory, out var supplierCode))
-                    throw new Exception($"Unknown MainCategory: {item.MainCategory}");
+                // Supplier
+                int? supplierId = null;
 
-                var supplierId = await connection.ExecuteScalarAsync<int?>(
-                    "SELECT SupplierId FROM Suppliers WHERE SupplierCode=@Code",
-                    new { Code = supplierCode }, transaction)
-                    ?? throw new Exception($"Supplier not found: {supplierCode}");
-
-                var productId = await connection.ExecuteScalarAsync<int>(
-                @"INSERT INTO Products
-                (ProductCode,ProductName,ThaiName,OrderTypeId,CategoryId,SupplierId,
-                 ImagePath,Description,DisplayOrder,IsActive,CreatedAt,UpdatedAt,
-                 AllowDecimal,DefaultUnitId)
-                 OUTPUT INSERTED.ProductId
-                 VALUES
-                (@ProductCode,@ProductName,@ThaiName,@OrderTypeId,@CategoryId,@SupplierId,
-                 @ImagePath,'',0,@IsActive,GETDATE(),GETDATE(),@AllowDecimal,@DefaultUnitId)",
-                new
+                if (SupplierMap.TryGetValue(
+                        item.MainCategory,
+                        out var supplierName)
+                    && supplierName is not null)
                 {
-                    ProductCode = item.Id,
-                    ProductName = item.Name,
-                    ThaiName = item.ThaiName,
-                    OrderTypeId = orderTypeId,
-                    CategoryId = categoryId,
-                    SupplierId = supplierId,
-                    ImagePath = item.Image,
-                    IsActive = item.Active,
-                    AllowDecimal = item.AllowDecimal,
-                    DefaultUnitId = unitId
-                }, transaction);
+                    supplierId = await connection.ExecuteScalarAsync<int?>(
+                        """
+                        SELECT SupplierID
+                        FROM Suppliers
+                        WHERE SupplierName = @SupplierName
+                          AND IsActive = 1
+                        """,
+                        new
+                        {
+                            SupplierName = supplierName
+                        },
+                        transaction);
 
+                    if (supplierId is null)
+                    {
+                        throw new Exception(
+                            $"Supplier not found: {supplierName}");
+                    }
+                }
+
+                // Insert Product
+                var productId = await connection.ExecuteScalarAsync<int>(
+                    """
+                    INSERT INTO Products
+                    (
+                        ProductCode,
+                        ProductName,
+                        ThaiName,
+                        OrderTypeId,
+                        CategoryId,
+                        SupplierId,
+                        ImagePath,
+                        Description,
+                        DisplayOrder,
+                        IsActive,
+                        CreatedAt,
+                        UpdatedAt,
+                        AllowDecimal,
+                        DefaultUnitId,
+                        OutOfStock
+                    )
+                    OUTPUT INSERTED.ProductId
+                    VALUES
+                    (
+                        @ProductCode,
+                        @ProductName,
+                        @ThaiName,
+                        @OrderTypeId,
+                        @CategoryId,
+                        @SupplierId,
+                        @ImagePath,
+                        '',
+                        0,
+                        @IsActive,
+                        GETDATE(),
+                        GETDATE(),
+                        @AllowDecimal,
+                        @DefaultUnitId,
+                        @OutOfStock
+                    )
+                    """,
+                    new
+                    {
+                        ProductCode = item.Id,
+                        ProductName = item.Name,
+                        ThaiName = item.ThaiName,
+                        OrderTypeId = orderTypeId,
+                        CategoryId = categoryId,
+                        SupplierId = supplierId,
+                        ImagePath = item.Image,
+                        IsActive = item.Active,
+                        AllowDecimal = item.AllowDecimal,
+                        DefaultUnitId = unitId,
+                        OutOfStock = false
+                    },
+                    transaction);
+
+                // Insert Product Unit
                 await connection.ExecuteAsync(
-                @"INSERT INTO ProductUnits
-                  (ProductId,UnitId,IsDefault,DisplayOrder)
-                  VALUES(@ProductId,@UnitId,1,1)",
-                new { ProductId = productId, UnitId = unitId }, transaction);
+                    """
+                    INSERT INTO ProductUnits
+                    (
+                        ProductId,
+                        UnitId,
+                        IsDefault,
+                        DisplayOrder
+                    )
+                    VALUES
+                    (
+                        @ProductId,
+                        @UnitId,
+                        1,
+                        1
+                    )
+                    """,
+                    new
+                    {
+                        ProductId = productId,
+                        UnitId = unitId
+                    },
+                    transaction);
 
                 imported++;
             }

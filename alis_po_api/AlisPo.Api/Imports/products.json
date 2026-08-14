@@ -96,7 +96,7 @@
     "image": "assets/images/products/beef/beef1.png",
     "unit": "KG",
     "allowDecimal": true,
-    "active": false
+    "active": true
   },
   {
     "id": "MK-BF-002",
@@ -107,7 +107,7 @@
     "image": "assets/images/products/beef/beef2.png",
     "unit": "KG",
     "allowDecimal": true,
-    "active": false
+    "active": true
   },
   {
     "id": "MK-BF-003",
@@ -118,7 +118,7 @@
     "image": "assets/images/products/beef/beef3.png",
     "unit": "PACK",
     "allowDecimal": true,
-    "active": false
+    "active": true
   },
   {
     "id": "108346",

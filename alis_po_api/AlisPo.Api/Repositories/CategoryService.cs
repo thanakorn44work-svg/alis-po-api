@@ -22,4 +22,64 @@ public sealed class CategoryService : ICategoryService
     {
         return await _repository.GetAllAsync(cancellationToken);
     }
+
+    public async Task AddMainCategoryAsync(
+    string mainCategory,
+    CancellationToken cancellationToken = default)
+    {
+        await _repository.AddMainCategoryAsync(
+            mainCategory,
+            cancellationToken);
+    }
+
+    public async Task AddSubCategoryAsync(
+    string mainCategory,
+    string subCategory,
+    CancellationToken cancellationToken = default)
+    {
+        await _repository.AddSubCategoryAsync(
+            mainCategory,
+            subCategory,
+            cancellationToken);
+    }
+    public async Task DeleteSubCategoryAsync(
+    string mainCategory,
+    string subCategory,
+    CancellationToken cancellationToken = default)
+    {
+        await _repository.DeleteSubCategoryAsync(
+            mainCategory,
+            subCategory,
+            cancellationToken);
+    }
+    public async Task DeleteMainCategoryAsync(
+    string mainCategory,
+    CancellationToken cancellationToken = default)
+    {
+        await _repository.DeleteMainCategoryAsync(
+            mainCategory,
+            cancellationToken);
+    }
+    public async Task RenameSubCategoryAsync(
+    string mainCategory,
+    string oldName,
+    string newName,
+    CancellationToken cancellationToken = default)
+    {
+        await _repository.RenameSubCategoryAsync(
+            mainCategory,
+            oldName,
+            newName,
+            cancellationToken);
+    }
+    public async Task RenameMainCategoryAsync(
+    string oldName,
+    string newName,
+    CancellationToken cancellationToken = default)
+    {
+        await _repository.RenameMainCategoryAsync(
+            oldName,
+            newName,
+            cancellationToken);
+    }
 }

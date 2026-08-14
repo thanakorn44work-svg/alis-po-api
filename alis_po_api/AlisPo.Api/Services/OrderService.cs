@@ -54,4 +54,12 @@ public sealed class OrderService : IOrderService
             month,
             cancellationToken);
     }
+    public async Task CompleteOrderAsync(
+        int purchaseOrderId,
+        CancellationToken cancellationToken = default)
+    {
+        await _repository.CompleteOrderAsync(
+            purchaseOrderId,
+            cancellationToken);
+    }
 }

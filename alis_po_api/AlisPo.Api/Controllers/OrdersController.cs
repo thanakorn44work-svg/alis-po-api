@@ -79,5 +79,17 @@ public sealed class OrdersController : ControllerBase
             DeletedCount = deletedCount
         });
     }
+    [HttpPut("{purchaseOrderId:int}/complete")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CompleteOrder(
+        int purchaseOrderId,
+        CancellationToken cancellationToken)
+    {
+        await _orderService.CompleteOrderAsync(
+            purchaseOrderId,
+            cancellationToken);
 
+        return NoContent();
+    }
 }
