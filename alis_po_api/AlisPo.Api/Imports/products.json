@@ -96,7 +96,7 @@
     "image": "assets/images/products/beef/beef1.png",
     "unit": "KG",
     "allowDecimal": true,
-    "active": true
+    "active": false
   },
   {
     "id": "MK-BF-002",
@@ -107,7 +107,7 @@
     "image": "assets/images/products/beef/beef2.png",
     "unit": "KG",
     "allowDecimal": true,
-    "active": true
+    "active": false
   },
   {
     "id": "MK-BF-003",
@@ -118,7 +118,7 @@
     "image": "assets/images/products/beef/beef3.png",
     "unit": "PACK",
     "allowDecimal": true,
-    "active": true
+    "active": false
   },
   {
     "id": "108346",
@@ -752,7 +752,7 @@
     "mainCategory": "Makro Order",
     "subCategory": "Ingredient",
     "name": "ARO Split Cashew Nut 800 g",
-    "thaiName": "เอโร่ เม็ดมะม่วงหิมพานต์ 800 กรัม",
+    "thaiName": "เอโร่ เม็ดมะม่วงหิมพานต์ซีก 800 กรัม",
     "image": "assets/images/products/ingredient/Ingredient13.png",
     "unit": "BAG",
     "allowDecimal": true,
@@ -913,7 +913,7 @@
     "active": true
   },
   {
-    "id": "120208",
+    "id": "121819",
     "mainCategory": "Makro Order",
     "subCategory": "Fruit",
     "name": "Fuji Apple",

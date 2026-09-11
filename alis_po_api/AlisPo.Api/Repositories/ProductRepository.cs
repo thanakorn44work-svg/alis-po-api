@@ -39,8 +39,7 @@ WHERE
 ORDER BY
     ot.DisplayOrder,
     c.DisplayOrder,
-    p.DisplayOrder,
-    p.ProductName;";
+    p.DisplayOrder;";
 
     private const string GetOrderTypeIdSql = @"
 SELECT OrderTypeId

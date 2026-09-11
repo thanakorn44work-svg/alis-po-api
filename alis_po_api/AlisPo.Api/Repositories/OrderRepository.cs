@@ -166,47 +166,88 @@ VALUES
                     cancellationToken: cancellationToken,
                     commandTimeout: 30));
 
-            foreach (var item in request.Items)
-            {
-                var product = await connection.QuerySingleOrDefaultAsync<ProductLookup>(
-                    new CommandDefinition(
-                        commandText: @"
+            // Load every product used by this order in one query.
+            // This avoids one SELECT query per line item.
+            var productCodes = request.Items
+                .Select(item => item.ProductCode?.Trim() ?? string.Empty)
+                .Where(code => code.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var products = await connection.QueryAsync<ProductLookup>(
+                new CommandDefinition(
+                    commandText: @"
 SELECT
     p.ProductId,
-
     p.ProductCode,
-
     p.ProductName,
-
     ISNULL(p.ThaiName,'') AS ThaiName,
-
     p.DefaultUnitId,
-
     u.UnitName
-
 FROM Products p
-
 INNER JOIN Units u
-ON p.DefaultUnitId = u.UnitId
+    ON p.DefaultUnitId = u.UnitId
+WHERE p.ProductCode IN @ProductCodes;",
+                    parameters: new
+                    {
+                        ProductCodes = productCodes
+                    },
+                    transaction: transaction,
+                    cancellationToken: cancellationToken,
+                    commandTimeout: 30));
 
-WHERE p.ProductCode = @ProductCode;",
-                        parameters: new
-                        {
-                            item.ProductCode
-                        },
-                        transaction: transaction,
-                        cancellationToken: cancellationToken,
-                        commandTimeout: 30));
+            var productByCode = products.ToDictionary(
+                product => product.ProductCode,
+                StringComparer.OrdinalIgnoreCase);
 
-                if (product is null)
+            // Validate the complete order before writing any detail rows.
+            foreach (var item in request.Items)
+            {
+                var productCode = item.ProductCode?.Trim() ?? string.Empty;
+
+                if (productCode.Length == 0 ||
+                    !productByCode.ContainsKey(productCode))
                 {
                     throw new InvalidOperationException(
-                        $"ProductCode '{item.ProductCode}' was not found.");
+                        $"ProductCode '{productCode}' was not found.");
+                }
+            }
+
+            // Keep SQL Server parameter usage comfortably below its 2100-parameter limit.
+            // Each detail row uses 10 parameters, so 100 rows = 1000 parameters.
+            const int batchSize = 100;
+
+            for (var offset = 0; offset < request.Items.Count; offset += batchSize)
+            {
+                var batch = request.Items
+                    .Skip(offset)
+                    .Take(batchSize)
+                    .ToList();
+
+                var values = new List<string>(batch.Count);
+                var parameters = new DynamicParameters();
+
+                for (var index = 0; index < batch.Count; index++)
+                {
+                    var item = batch[index];
+                    var product = productByCode[item.ProductCode.Trim()];
+                    var prefix = $"p{index}_";
+
+                    values.Add($"(@{prefix}PurchaseOrderId, @{prefix}ProductId, @{prefix}ProductCode, @{prefix}ProductName, @{prefix}ThaiName, @{prefix}UnitId, @{prefix}UnitName, @{prefix}Quantity, @{prefix}Remark, @{prefix}DisplayOrder)");
+
+                    parameters.Add($"{prefix}PurchaseOrderId", orderId);
+                    parameters.Add($"{prefix}ProductId", product.ProductId);
+                    parameters.Add($"{prefix}ProductCode", product.ProductCode);
+                    parameters.Add($"{prefix}ProductName", product.ProductName);
+                    parameters.Add($"{prefix}ThaiName", product.ThaiName);
+                    parameters.Add($"{prefix}UnitId", item.UnitId);
+                    parameters.Add($"{prefix}UnitName", product.UnitName);
+                    parameters.Add($"{prefix}Quantity", item.Qty);
+                    parameters.Add($"{prefix}Remark", item.Remark ?? string.Empty);
+                    parameters.Add($"{prefix}DisplayOrder", 0);
                 }
 
-                await connection.ExecuteAsync(
-                    new CommandDefinition(
-commandText: @"
+                var insertSql = $@"
 INSERT INTO PurchaseOrderDetails
 (
     PurchaseOrderId,
@@ -221,40 +262,12 @@ INSERT INTO PurchaseOrderDetails
     DisplayOrder
 )
 VALUES
-(
-    @PurchaseOrderId,
-    @ProductId,
-    @ProductCode,
-    @ProductName,
-    @ThaiName,
-    @UnitId,
-    @UnitName,
-    @Quantity,
-    @Remark,
-    @DisplayOrder
-);",
-                        parameters: new
-                        {
-                            PurchaseOrderId = orderId,
+{string.Join(",\n", values)};";
 
-                            ProductId = product.ProductId,
-
-                            ProductCode = product.ProductCode,
-
-                            ProductName = product.ProductName,
-
-                            ThaiName = product.ThaiName,
-
-                            UnitId = item.UnitId,
-
-                            UnitName = product.UnitName,
-
-                            Quantity = item.Qty,
-
-                            Remark = item.Remark ?? "",
-
-                            DisplayOrder = 0
-                        },
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        insertSql,
+                        parameters,
                         transaction: transaction,
                         cancellationToken: cancellationToken,
                         commandTimeout: 30));
